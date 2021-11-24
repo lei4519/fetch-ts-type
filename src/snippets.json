@@ -1,0 +1,12 @@
+{
+	"Fetch TS Comment": {
+		"prefix": "/**",
+		"body": [
+			"/** fetchTsComment",
+			" * @namespace ${1:生成类型的 nameSpace}",
+			" * @url ${2:发送请求的 url}",
+			" */"
+		],
+		"description": "生成获取 TS 类型的注释"
+	}
+}
