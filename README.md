@@ -2,6 +2,12 @@
 
 配置请求接口，根据响应结果生成 TS 类型，本地远程不一致时会生成 diff。
 
+## TodoList
+
+- 自定义 diff 策略
+- 请求方法、cookie
+- 插件系统
+
 ## Features
 ![](fetch.gif)
 

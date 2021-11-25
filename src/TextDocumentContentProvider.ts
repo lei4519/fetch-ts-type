@@ -52,8 +52,7 @@ interface Arg {
 }
 
 export class TextDocumentContentProvider
-  implements VsCodeTextDocumentContentProvider
-{
+  implements VsCodeTextDocumentContentProvider {
   scheme = 'fetchTsTypePreview'
 
   onDidChangeEmitter = new EventEmitter<Uri>()
@@ -181,46 +180,11 @@ export namespace ${record.config.namespace} {\n\texport ${type}\n}
 
     const existCodeRecord = this.codeExist(record)
     if (existCodeRecord) {
-      const oldCode = existCodeRecord.code.trim().split(/(\n|\r\n)/)
-      const newCode = typeString.trim().split(/(\n|\r\n)/)
-      // 比对时忽略空格分号
-      const diff = myers(oldCode.map(v => v.replaceAll(/\s|;/g, '')), newCode.map(v => v.replaceAll(/\s|;/g, '')))
-
-      // 替换函数
-      const replace = (code: string) => editor.edit(eb => {
+      editor.edit(eb => {
         const startPos = editor.document.positionAt(existCodeRecord.start)
         const endPos = editor.document.positionAt(existCodeRecord.end)
-        eb.replace(new Range(startPos, endPos), code)
+        eb.replace(new Range(startPos, endPos), this.diffCode(existCodeRecord.code, typeString))
       })
-
-      if (diff.length === 1) {
-        const [action] = diff[0]
-        if (action === 'EQ') {
-          return
-        } else {
-          // 全部新增、全部删除
-          replace(typeString.trim())
-          return
-        }
-      }
-
-      const diffCode = diff.reduce((txt, [action, _, start, end], i) => {
-        let value = newCode.slice(start, end + 1).join('')
-        if (action === 'RM') {
-          const next = diff[i + 1]
-          // 删除跟着添加，说明是修改
-          if (next && next[0] === 'ADD') {
-            const oldValue = oldCode.slice(start, end + 1).join('')
-            value = `<<<<<<<\n${oldValue}\n=======\n${value}\n>>>>>>>`
-            for (let i = start; i <= end; i++) {
-              newCode[i] = ''
-            }
-          }
-        }
-        return txt + value
-      }, '')
-
-      replace(diffCode)
     } else {
       editor.edit(eb => {
         eb.insert(
@@ -229,6 +193,128 @@ export namespace ${record.config.namespace} {\n\texport ${type}\n}
         )
       })
     }
+  }
+  // diff code
+  private diffCode(oldCodeText: string, newCodeText: string) {
+    const oldCodeArr = oldCodeText.trim().split(/(\n|\r\n)/)
+    const newCodeArr = newCodeText.trim().split(/(\n|\r\n)/)
+
+    // 将不需要 diff 的字符替换为空
+    let notCloseBlockComment = false
+    const fileterIgnoreChars = (arr: string[]) => arr.map(line => {
+      const blockCommentBegin = '/*'
+      const blockCommentEnd = '*/'
+
+      if (notCloseBlockComment) {
+        // 块级注释没有关闭，当前行也没有关闭文本，替换为空
+        if (line.indexOf(blockCommentEnd) === -1) {
+          return ''
+        }
+        notCloseBlockComment = false
+        // 后面可能还有字符，交给后续处理
+        line = line.replaceAll(/.*?\*\//g, '')
+      }
+
+      const i = line.indexOf(blockCommentBegin)
+      if (i !== -1) {
+        // 块级注释没有同行结束
+        if (line.substring(i + blockCommentBegin.length).indexOf(blockCommentEnd) === -1) {
+          notCloseBlockComment = true
+        }
+        // 注释替换为空
+        return ''
+      }
+
+      // 替换空字符、分号、单行注释为空
+      return line.replaceAll(/\s|;|(\/\/.*)/g, '')
+    })
+
+    const oldDiffCodeArr = fileterIgnoreChars(oldCodeArr)
+    const newDiffCodeArr = fileterIgnoreChars(newCodeArr)
+
+    // 将空行删除，需要建立与原数组的索引映射
+    const genMap = (arr: string[]) => {
+      const map: Record<number, number> = {}
+      let newIndex = 0
+      const notEmptyLineArr = arr.filter((line, orgIndex) => {
+        if (line === '') {
+          return false
+        } else {
+          map[newIndex++] = orgIndex
+          return true
+        }
+      })
+      map[newIndex - 1] = arr.length - 1
+
+      return [notEmptyLineArr, map] as const
+    }
+
+    const [oldDiffArr, oldMap] = genMap(oldDiffCodeArr)
+    const [newDiffArr, newMap] = genMap(newDiffCodeArr)
+
+    const diffCodeArr = myers(oldDiffArr, newDiffArr)
+
+    if (diffCodeArr.length === 1) {
+      const [action] = diffCodeArr[0]
+      if (action === 'EQ') {
+        return oldCodeText
+      } else {
+        // 全部新增、全部删除
+        return newCodeText.trim()
+      }
+    }
+
+    // 获取原始的字符串
+    const getOrgValue = (arr: string[], map: Record<number, number>, start: number, end: number) => {
+      let realStart: number, realEnd: number
+      // 第一个从 0 开始
+      if (start === 0) {
+        realStart = 0
+      } else {
+        realStart = map[start]
+      }
+      // 最后一个选最后
+      if (!map[end + 1]) {
+        realEnd = arr.length - 1
+      } else {
+        realEnd = map[end]
+      }
+
+      // 拼接不需要 diff 的字符
+      let ignoreValue = ''
+      if (start !== 0) {
+        // 说明中间有忽略的字符行
+        if (realStart - map[start - 1] > 0) {
+          ignoreValue = arr.slice(map[start - 1] + 1, realStart).join('')
+        }
+      }
+
+      return [ignoreValue, arr.slice(realStart, realEnd + 1).join('')] as [string, string]
+    }
+
+    return diffCodeArr.reduce((txt, [action, _, start, end], i) => {
+      // 默认取原文本
+      let [ignore, value] = getOrgValue(oldCodeArr, oldMap, start, end)
+      value = ignore + value
+      if (action === 'ADD') {
+        // 新增取新文本
+        ;[ignore, value] = getOrgValue(newCodeArr, newMap, start, end)
+      } else if (action === 'RM') {
+        const next = diffCodeArr[i + 1]
+        // 删除跟着添加，说明是修改，加 diff
+        if (next && next[0] === 'ADD') {
+          const [ignoreOldValue, oldValue] = getOrgValue(oldCodeArr, oldMap, start, end)
+          const [, newValue] = getOrgValue(newCodeArr, newMap, start, end)
+          value = `${ignoreOldValue}<<<<<<<\n${oldValue}\n=======\n${newValue}\n>>>>>>>`
+          for (let i = start; i <= end; i++) {
+            newCodeArr[newMap[i]] = ''
+          }
+        } else {
+          // 说明是本地添加的，不改动
+        }
+      }
+      return txt + value
+    }, '')
   }
 
   // 文档中已有生成的代码
@@ -303,7 +389,7 @@ export namespace ${record.config.namespace} {\n\texport ${type}\n}
     }
     let response
     try {
-      response = JSON.stringify({...req.response, request: null}, null, 2)
+      response = JSON.stringify({ ...req.response, request: null }, null, 2)
     } catch {
       response = req.response
     }
