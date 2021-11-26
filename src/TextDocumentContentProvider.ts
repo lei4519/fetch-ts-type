@@ -13,7 +13,6 @@ import {
   TextDocumentContentProvider as VsCodeTextDocumentContentProvider,
   TextEditor,
   Position,
-  commands,
   Range,
 } from 'vscode'
 
@@ -194,63 +193,14 @@ export namespace ${record.config.namespace} {\n\texport ${type}\n}
       })
     }
   }
+
   // diff code
   private diffCode(oldCodeText: string, newCodeText: string) {
     const oldCodeArr = oldCodeText.trim().split(/(\n|\r\n)/)
     const newCodeArr = newCodeText.trim().split(/(\n|\r\n)/)
 
-    // 将不需要 diff 的字符替换为空
-    let notCloseBlockComment = false
-    const fileterIgnoreChars = (arr: string[]) => arr.map(line => {
-      const blockCommentBegin = '/*'
-      const blockCommentEnd = '*/'
-
-      if (notCloseBlockComment) {
-        // 块级注释没有关闭，当前行也没有关闭文本，替换为空
-        if (line.indexOf(blockCommentEnd) === -1) {
-          return ''
-        }
-        notCloseBlockComment = false
-        // 后面可能还有字符，交给后续处理
-        line = line.replaceAll(/.*?\*\//g, '')
-      }
-
-      const i = line.indexOf(blockCommentBegin)
-      if (i !== -1) {
-        // 块级注释没有同行结束
-        if (line.substring(i + blockCommentBegin.length).indexOf(blockCommentEnd) === -1) {
-          notCloseBlockComment = true
-        }
-        // 注释替换为空
-        return ''
-      }
-
-      // 替换空字符、分号、单行注释为空
-      return line.replaceAll(/\s|;|(\/\/.*)/g, '')
-    })
-
-    const oldDiffCodeArr = fileterIgnoreChars(oldCodeArr)
-    const newDiffCodeArr = fileterIgnoreChars(newCodeArr)
-
-    // 将空行删除，需要建立与原数组的索引映射
-    const genMap = (arr: string[]) => {
-      const map: Record<number, number> = {}
-      let newIndex = 0
-      const notEmptyLineArr = arr.filter((line, orgIndex) => {
-        if (line === '') {
-          return false
-        } else {
-          map[newIndex++] = orgIndex
-          return true
-        }
-      })
-      map[newIndex - 1] = arr.length - 1
-
-      return [notEmptyLineArr, map] as const
-    }
-
-    const [oldDiffArr, oldMap] = genMap(oldDiffCodeArr)
-    const [newDiffArr, newMap] = genMap(newDiffCodeArr)
+    const [oldDiffArr, oldMap] = this.wipeEmptyLineAndGenIndexMap(this.wipeNotNeedDiffChars(oldCodeArr))
+    const [newDiffArr, newMap] = this.wipeEmptyLineAndGenIndexMap(this.wipeNotNeedDiffChars(newCodeArr))
 
     const diffCodeArr = myers(oldDiffArr, newDiffArr)
 
@@ -266,27 +216,16 @@ export namespace ${record.config.namespace} {\n\texport ${type}\n}
 
     // 获取原始的字符串
     const getOrgValue = (arr: string[], map: Record<number, number>, start: number, end: number) => {
-      let realStart: number, realEnd: number
       // 第一个从 0 开始
-      if (start === 0) {
-        realStart = 0
-      } else {
-        realStart = map[start]
-      }
+      const realStart = start === 0 ? 0 : map[start]
       // 最后一个选最后
-      if (!map[end + 1]) {
-        realEnd = arr.length - 1
-      } else {
-        realEnd = map[end]
-      }
+      const realEnd = map[end + 1] ? map[end] : arr.length - 1
 
       // 拼接不需要 diff 的字符
       let ignoreValue = ''
-      if (start !== 0) {
-        // 说明中间有忽略的字符行
-        if (realStart - map[start - 1] > 0) {
-          ignoreValue = arr.slice(map[start - 1] + 1, realStart).join('')
-        }
+      // 说明中间有忽略的字符行
+      if (start !== 0 && realStart - map[start - 1] > 0) {
+        ignoreValue = arr.slice(map[start - 1] + 1, realStart).join('')
       }
 
       return [ignoreValue, arr.slice(realStart, realEnd + 1).join('')] as [string, string]
@@ -315,6 +254,61 @@ export namespace ${record.config.namespace} {\n\texport ${type}\n}
       }
       return txt + value
     }, '')
+  }
+
+  // 去除不需要 diff 的字符
+  private wipeNotNeedDiffChars(arr: string[]) {
+    // 没有关闭的块级注释标识
+    let notCloseBlockComment = false
+
+    const wipe = (line: string) => {
+      const blockCommentBegin = '/*'
+      const blockCommentEnd = '*/'
+
+      if (notCloseBlockComment) {
+        /**
+         * 块级注释没有关闭，当前行也没有关闭，替换为空
+         * @example
+         * /*
+         *  123 <-- this
+         */
+        if (line.indexOf(blockCommentEnd) === -1) {
+          return ''
+        }
+        notCloseBlockComment = false
+        // 关闭文本后面可能还有正常字符，清除注释文本，交给后续处理
+        line = line.replace(/.*?\*\//g, '')
+      }
+
+      const i = line.indexOf(blockCommentBegin)
+      // 有块级注释开始文本，替换注释为空，交给后续处理
+      if (i !== -1) {
+        // 块级注释没有同行结束
+        if (line.substring(i + blockCommentBegin.length).indexOf(blockCommentEnd) === -1) {
+          notCloseBlockComment = true
+          line = line.replace(/\/\*.*/g, '')
+        } else {
+          line = line.replace(/\/\*.*?\*\//g, '')
+        }
+      }
+
+      // 去除空字符、分号、单行注释
+      return line.replace(/\s|;|(\/\/.*)/g, '')
+    }
+
+    return arr.map(wipe)
+  }
+
+  // 去除空行，建立与原始数组的索引映射
+  private wipeEmptyLineAndGenIndexMap(arr: string[]) {
+    // [没有空行的数组，{ 去除空行的索引：原始数组的索引 }]
+    return arr.reduce(([emptyArr, map], line, orgIndex) => {
+      if (line !== '') {
+        emptyArr.push(line)
+        map[emptyArr.length - 1] = orgIndex
+      }
+      return [emptyArr, map] as any
+    }, [[], {}] as [string[], Record<number, number>])
   }
 
   // 文档中已有生成的代码
