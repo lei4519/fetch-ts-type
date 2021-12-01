@@ -20,7 +20,8 @@
 		"fetch",
 		"ts",
 		"json",
-		"fetch ts type"
+		"fetch ts type",
+		"fetchTsComment"
 	],
 	"categories": [
 		"Other"

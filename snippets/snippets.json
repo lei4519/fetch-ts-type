@@ -1,6 +1,6 @@
 {
 	"Fetch TS Comment": {
-		"prefix": "/**",
+		"prefix": "/*",
 		"body": [
 			"/** fetchTsComment",
 			" * @namespace ${1:生成类型的 nameSpace}",

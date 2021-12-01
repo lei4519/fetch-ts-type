@@ -6,12 +6,13 @@ import {
   window,
 } from 'vscode'
 import { CodelensProvider } from './CodelensProvider'
+import { FetchTsType } from './FetchTsType'
 import { TextDocumentContentProvider } from './TextDocumentContentProvider'
+
 export const ns = 'fetch-ts-type'
 
-export const action = {
+export const ACTION = {
   errTips: `${ns}.errTips`,
-  preview: `${ns}.preview`,
   genCode: `${ns}.genCode`,
 }
 
@@ -24,24 +25,27 @@ export function activate({ subscriptions }: ExtensionContext) {
   )
 
   subscriptions.push(
-    commands.registerCommand(action.errTips, (args: any) => {
+    commands.registerCommand(ACTION.errTips, (args: any) => {
       window.showErrorMessage(args)
     })
   )
 
-  const provider = new TextDocumentContentProvider()
+  const TDCP = new TextDocumentContentProvider()
 
-  subscriptions.push(provider)
+  const FTT = new FetchTsType(TDCP.showDoc.bind(TDCP))
+
+  subscriptions.push(TDCP)
+  subscriptions.push(FTT)
 
   subscriptions.push(
-    commands.registerCommand(action.genCode, (arg: any) => {
+    commands.registerCommand(ACTION.genCode, (arg: any) => {
       const editor = window.activeTextEditor!
-      provider.generate({ ...arg, editor })
+      FTT.run({ ...arg, editor })
     })
   )
 
   subscriptions.push(
-    workspace.registerTextDocumentContentProvider(provider.scheme, provider)
+    workspace.registerTextDocumentContentProvider(TDCP.scheme, TDCP)
   )
 }
 

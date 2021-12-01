@@ -1,13 +1,12 @@
 import {
-  CancellationToken,
   CodeLens,
   CodeLensProvider,
   Position,
   Range,
   TextDocument,
 } from 'vscode'
-import { action } from './extension'
-import { Config } from './TextDocumentContentProvider'
+import { ACTION } from './extension'
+import { Config } from './FetchTsType'
 
 /**
  * CodelensProvider
@@ -29,8 +28,7 @@ export class CodelensProvider implements CodeLensProvider {
   }
 
   public provideCodeLenses(
-    document: TextDocument,
-    token: CancellationToken
+    document: TextDocument
   ): CodeLens[] | Thenable<CodeLens[]> {
     this.codeLenses = []
     const text = document.getText()
@@ -52,7 +50,7 @@ export class CodelensProvider implements CodeLensProvider {
         this.codeLenses.push(
           new CodeLens(range, {
             title: '请配置 url',
-            command: action.errTips,
+            command: ACTION.errTips,
             arguments: ['请配置 url'],
           })
         )
@@ -60,7 +58,7 @@ export class CodelensProvider implements CodeLensProvider {
         this.codeLenses.push(
           new CodeLens(range, {
             title: '请配置 namespace',
-            command: action.errTips,
+            command: ACTION.errTips,
             arguments: ['请配置 namespace'],
           })
         )
@@ -68,24 +66,16 @@ export class CodelensProvider implements CodeLensProvider {
         this.codeLenses.push(
           new CodeLens(range, {
             title: '生成类型',
-            command: action.genCode,
-            arguments: [{ config, endLineNumber, showDoc: false }],
+            command: ACTION.genCode,
+            arguments: [{ config, endLineNumber }],
           })
         )
-        // this.codeLenses.push(
-        //   new CodeLens(range, {
-        //     title: '预览',
-        //     command: action.genCode,
-        //     arguments: [{ config, endLineNumber, showDoc: true }],
-        //   })
-        // )
       }
     }
     return this.codeLenses
   }
 
-  public resolveCodeLens(codeLens: CodeLens, token: CancellationToken) {
-    console.log('resolveCodeLens')
+  public resolveCodeLens(codeLens: CodeLens) {
     return codeLens
   }
 }
