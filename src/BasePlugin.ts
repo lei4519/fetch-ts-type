@@ -10,6 +10,18 @@ interface RequestRecordMap {
 	[key: string]: AbortController
 }
 
+enum SIGNAL {
+	/** 交由下一个插件继续处理 */
+	NEXT,
+	/** 到此为止，以此返回结果为准，不再调用后续插件 */
+	DONE,
+}
+
+/* TODO
+- 直接配置 JSON 进行生成
+- 基础插件生成后，由插件改变 diff 策略
+- 由插件全权生成，或跳过交由下一个插件进行
+*/
 export class BasePlugin implements Plugin {
 	/** 请求中的取消方法记录 */
 	fetchingControllerRecord: RequestRecordMap = {}
@@ -33,29 +45,36 @@ export class BasePlugin implements Plugin {
 	}
 
 	private fetch(config: Config) {
-		const { url, method = 'get' } = config
-		return axios({
+		const { url, method = 'get' as any, json } = config
+
+		const promise = json ? Promise.resolve({ data: json }) : axios({
 			url,
 			method,
 			signal: this.fetchingControllerRecord[url].signal
 		})
+
+		return promise
 			.then(res => {
 				try {
 					return this.genTsType(config, res.data)
 				} catch (transferErrMsg) {
-					this.showDoc(url, `
-					/*|------------------------------|
-					| 转换失败                     |
-					|------------------------------|*/
+					this.showDoc(url,
+						`
+/*
+|-------------------------------|
+|           转换失败             |
+|------------------------------|
+*/
 
-					${transferErrMsg}
+/*********         错误消息            **********/
 
-					/**********************************************/
+${transferErrMsg}
 
-					const response = ${JSON.stringify({ ...res, request: null }, null, 2)}
+/*********          响应体            **********/
 
-					/**********************************************/
-									`)
+const response = ${JSON.stringify({ ...res, request: null }, null, 2)}
+
+`)
 					return null
 				}
 			})
@@ -64,21 +83,24 @@ export class BasePlugin implements Plugin {
 					return null
 				}
 
-				this.showDoc(url, `
-/*|------------------------------|
-| 请求失败                      |
-|------------------------------|*/
+				this.showDoc(url,
+					`
+/*
+|-------------------------------|
+|           请求失败             |
+|------------------------------|
+*/
 
-/**********************************************/
+/*********          响应体            **********/
 
-const response = ${JSON.stringify({ ...err.response, request: null }, null, 2)}
+const response = ${err?.response ? JSON.stringify({ ...err.response, request: null }, null, 2) : err}
 
-/**********************************************/
-				`)
+`)
 				return null
 			})
 			.finally(() => {
 				Reflect.deleteProperty(this.fetchingControllerRecord, url)
+				console.log(this.fetchingControllerRecord)
 			})
 	}
 

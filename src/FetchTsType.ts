@@ -8,6 +8,10 @@ export interface Config {
 	namespace: string
 	/** 请求地址 */
 	url: string
+	/** 请求方法 */
+	method?: string
+	/** 直接传入 JSON 进行解析 */
+	json?: string
 	/** 插件自行增加，解析格式「@key value」 */
 	[key: string]: any
 }

@@ -3,6 +3,7 @@
 	"publisher": "lei4519",
 	"displayName": "Fetch Ts Type",
 	"description": "根据响应的 JSON 数据生成 TS 类型",
+	"icon": "logo.png",
 	"version": "0.0.4",
 	"author": "lei4519",
 	"repository": {
