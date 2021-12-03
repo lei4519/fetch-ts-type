@@ -29,10 +29,20 @@
 	],
 	"activationEvents": [
 		"onLanguage:typescript",
-		"onLanguage:typescriptreact"
+		"onLanguage:typescriptreact",
+		"onCommand:FetchTsType.reloadMWS"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
+		"commands": [
+			{
+				"command": "FetchTsType.reloadMWS",
+				"category": "FetchTsType",
+				"title": "ReloadMWS: 重新加载中间件",
+				"shortTitle": "忽略缓存重新加载中间件",
+				"when": "editorLangId == typescript || editorLangId == typescriptreact"
+			}
+		],
 		"snippets": [
 			{
 				"language": "typescript",
@@ -45,14 +55,22 @@
 		],
 		"configuration": {
 			"properties": {
-				"fetch-ts-type.enableCodeLens": {
-					"type": "boolean",
-					"default": true
+				"FetchTsType.mws": {
+					"type": "array",
+					"description": "中间件配置",
+					"default": [
+						"https://raw.githubusercontent.com/lei4519/FTT-base-mw/master/dist/index.js"
+					],
+					"items": {
+						"type": "string"
+					}
 				}
 			}
 		}
 	},
 	"scripts": {
+		"postinstall": "npm run rebuild",
+		"rebuild": "electron-rebuild -v 13.5.0 -f -w sqlite3",
 		"vscode:prepublish": "yarn run compile",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
@@ -61,16 +79,15 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/diff": "^5.0.1",
+		"@types/axios": "^0.14.0",
 		"@types/glob": "^7.1.4",
-		"@types/humps": "^2.0.1",
-		"@types/lodash": "^4.14.176",
 		"@types/mocha": "^9.0.0",
 		"@types/node": "14.x",
 		"@types/vscode": "^1.62.0",
 		"@typescript-eslint/eslint-plugin": "^5.1.0",
 		"@typescript-eslint/parser": "^5.1.0",
 		"@vscode/test-electron": "^1.6.2",
+		"electron-rebuild": "^3.2.5",
 		"eslint": "^8.1.0",
 		"glob": "^7.1.7",
 		"mocha": "^9.1.3",
@@ -78,10 +95,6 @@
 	},
 	"dependencies": {
 		"axios": "^0.24.0",
-		"diff": "^5.0.0",
-		"humps": "^2.0.1",
-		"json-to-ts": "^1.7.0",
-		"lodash": "^4.17.21",
-		"node-abort-controller": "^3.0.1"
+		"chrome-cookies-secure": "^1.3.2"
 	}
 }

@@ -4,12 +4,8 @@
  */
 export namespace TaskInfo {
 	export interface RootObject {
-		/**
-		 * hhhh
-		 */
 		isSuccess: boolean
-		// 123
-		err: Err
+		err?: Err
 		data: Data
 	}
 	export interface Data {
@@ -66,3 +62,11 @@ export namespace TaskInfo {
 		mag: string
 	}
 }
+
+
+
+
+
+
+
+

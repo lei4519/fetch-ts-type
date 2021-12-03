@@ -1,19 +1,37 @@
-import { Position, Range, TextEditor } from "vscode";
+import { ExtensionContext, Position, Range, TextEditor, window, workspace } from "vscode";
 import { TextDocumentContentProvider } from "./TextDocumentContentProvider";
-import { diff } from '../lib/rust-myers-diff/pkg/rust_myers_diff'
-import { BasePlugin } from "./BasePlugin";
+import { diff } from '../rust-myers-diff/pkg/rust_myers_diff'
+import axios from 'axios'
+import chrome from 'chrome-cookies-secure'
 
-export interface Config {
-	/** 生成类型的 namespace */
-	namespace: string
-	/** 请求地址 */
-	url: string
-	/** 请求方法 */
-	method?: string
-	/** 直接传入 JSON 进行解析 */
-	json?: string
-	/** 插件自行增加，解析格式「@key value」 */
-	[key: string]: any
+interface CacheMw {
+	/** 请求到的代码 */
+	code: string
+	/** 下载的时间 */
+	downloadTime: number
+	/** 到期时间 */
+	expireTime: number
+}
+
+const isFunction = (v: any) => typeof v === 'function'
+
+const chromeCookiesSecure: ChromeCookiesSecure.Default = {
+	getCookies(...args: any) {
+		// @ts-ignore
+		chrome.getCookies(...args)
+	},
+	getCookiesPromised: (...args) => new Promise((resolve, reject) => {
+		let url, format, profile
+		if (args.length === 3) {
+			;[url, format, profile] = args
+		} else {
+			;[url, profile] = args
+		}
+
+		chrome.getCookies(url, format || 'object', (err, data) => {
+			err ? reject(err) : resolve(data)
+		}, profile)
+	})
 }
 
 interface Arg {
@@ -23,20 +41,6 @@ interface Arg {
 	endLineNumber: number
 	/** 点击「生成类型」的编辑器实例 */
 	editor: TextEditor
-}
-
-export interface Plugin {
-	/** 主入口：生成类型字符串 */
-	generate(config: Config): string | null | Promise<string | null>
-	/**
-	 * 当文档中已生成过代码时，生成 diff 代码
-	 * @param existCode 文档中已存在的代码
-	 * @param newCode 调用 generate 新生成的代码
-	 * @param myers myers diff 算法 https://github.com/lei4519/rust-myers-diff
-	 */
-	generateDiffCode?: (existCode: string, newCode: string, myers: typeof diff) => string | null
-	/** 卸载时的钩子函数 */
-	dispose(): any
 }
 
 interface ExistCodeRecord {
@@ -49,24 +53,178 @@ interface ExistCodeRecord {
 }
 
 export class FetchTsType {
+	globalState: ExtensionContext['globalState']
 	/** 展示文档内容 */
 	showDoc: TextDocumentContentProvider['showDoc']
-	plugin: Plugin
+	/** 正在加载中间件 */
+	loadingMwsPromise: Promise<any> | null = null
+	/** 中间件集 */
+	mws: MW[] = []
 
-	constructor(showDoc: TextDocumentContentProvider['showDoc']) {
+
+	constructor(showDoc: TextDocumentContentProvider['showDoc'], globalState: ExtensionContext['globalState']) {
 		this.showDoc = showDoc
-		this.plugin = new BasePlugin(showDoc)
+		this.globalState = globalState
+		this.load()
 	}
+
+	async load(ignoreCache = false) {
+		if (this.loadingMwsPromise) {
+			window.showInformationMessage("中间件正在加载...")
+		} else {
+			this.loadingMwsPromise =
+				this.lodaMws(ignoreCache).then((mws) => {
+					this.mws = mws
+					this.loadingMwsPromise = null
+				})
+		}
+	}
+
+	private async lodaMws(ignoreCache: boolean) {
+		const config = workspace.getConfiguration("FetchTsType")
+
+		const mwsUrl = [...config.get<string[]>('mws', [])]
+		const mws: MW[] = []
+
+		while (mwsUrl.length) {
+			const mwURL = mwsUrl.shift()!
+
+			const cache = this.globalState.get<CacheMw>(mwURL)
+
+			if (cache) {
+				if (cache.expireTime >= Date.now()) {
+					const { code } = cache
+					const MW = this.genCtor(code)
+					const mw: MW = new MW()
+					mws.push(mw)
+					continue
+				} else {
+					this.globalState.update(mwURL, undefined)
+				}
+			}
+
+			try {
+				const { searchParams } = new URL(mwURL)
+
+				let Cookie = ''
+
+				if (searchParams.get('cookie') === '1') {
+					Cookie = await chromeCookiesSecure.getCookiesPromised(mwURL, 'header')
+				}
+
+				const { data } = await axios.get(mwURL, {
+					headers: {
+						Cookie,
+						'User-Agent': 'VSCode Ext: FetchTsType/fetch-mw'
+					}
+				})
+
+				const code = `return function run(module, exports, require) {${data}}`
+
+				const MW = this.genCtor(code)
+
+				try {
+					const mw: MW = new MW()
+
+					const methods = ['generate', 'generateDiffCode', 'dispose'] as (keyof MW)[]
+
+					if (methods.every(m => isFunction(mw[m]))) {
+						mw.chromeCookiesSecure = chromeCookiesSecure
+						mw.showDoc = this.showDoc
+						mws.push(mw)
+
+						const downloadTime = Date.now()
+						const expireTime = downloadTime + (mw.cacheTime || 1000 * 60 * 60 * 24 * 7)
+						this.globalState.update(mwURL, {
+							code,
+							downloadTime,
+							expireTime
+						} as CacheMw)
+					} else {
+						throw new Error("中间件必须实现 MW 接口")
+					}
+				} catch {
+					throw new Error('中间件必须通过 module.exports 直接导出，必须实现 MW 接口')
+				}
+			} catch (e) {
+				this.showDoc(mwURL, `${mwURL} \n 中间件加载失败：\n\t ${e}`)
+			}
+		}
+
+		if (ignoreCache) {
+			window.showInformationMessage("中间件重新加载成功")
+		}
+
+		return mws
+	}
+
+	genCtor(code: string) {
+		const m = {
+			exports: null as any
+		}
+
+		new Function(code)()(m, m.exports, require)
+
+		return m.exports
+	}
+
 	/** 入口 */
 	async run(arg: Arg) {
-		const code = await this.plugin.generate(arg.config)
-		if (!code) { return }
-		const existCodeRecode = this.matchCodeExist(arg)
-		if (existCodeRecode) {
-			this.replaceExistCode(arg, existCodeRecode, code)
-		} else {
-			this.insertCode(arg, code)
+		if (this.loadingMwsPromise) {
+			window.showWarningMessage("中间件加载中...")
+			await this.loadingMwsPromise
+			window.showInformationMessage("中间件加载完成")
 		}
+
+		if (this.mws.length === 0) {
+			window.showErrorMessage("没有配置中间件，无法生成类型")
+			return
+		}
+
+		const ctx: Ctx = {
+			config: arg.config,
+			existCode: null,
+			newCode: null,
+			diffFn: diff,
+			diffCode: null
+		}
+
+		let newCode: string | null = null
+
+		try {
+			newCode = (await this.genNext('generate', ctx)()).newCode
+		} catch (e) {
+			this.showDoc(arg.config.url, `${e}`)
+		}
+
+		if (!newCode) { return }
+
+		const existCodeRecode = this.matchCodeExist(arg)
+
+		if (existCodeRecode) {
+			try {
+				await this.genNext('generateDiffCode', ctx)()
+			} catch (e) {
+				this.showDoc(arg.config.url, `${e}`)
+			}
+		}
+
+		if (existCodeRecode && (ctx.diffCode || ctx.newCode)) {
+			this.replaceExistCode(arg, existCodeRecode.start, existCodeRecode.end, (ctx.diffCode || ctx.newCode)!)
+		} else {
+			ctx.newCode && this.insertCode(arg, ctx.newCode)
+		}
+	}
+
+	private genNext(method: keyof Pick<MW, 'generate' | 'generateDiffCode'>, ctx: Ctx) {
+		let i = 0, l = this.mws.length
+		const next = () => {
+			if (i === l) {
+				return Promise.resolve(ctx)
+			}
+			return this.mws[i++][method](ctx, next)
+		}
+		return next
 	}
 
 	/** 是否已生成过代码，若是：生成已存在的代码信息 */
@@ -114,14 +272,8 @@ export class FetchTsType {
 	}
 
 	/** 替换文档中已存在的代码 */
-	private replaceExistCode({ editor }: Arg, { code: oldCode, start, end }: ExistCodeRecord, newCode: string) {
+	private replaceExistCode({ editor }: Arg, start: number, end: number, diffCode: string) {
 		editor.edit(eb => {
-			let diffCode = newCode
-			if (typeof this.plugin.generateDiffCode === 'function') {
-				const dc = this.plugin.generateDiffCode(oldCode, newCode, diff)
-				if (dc === null) { return }
-				diffCode = dc
-			}
 			const startPos = editor.document.positionAt(start)
 			const endPos = editor.document.positionAt(end)
 			eb.replace(new Range(startPos, endPos), diffCode)
@@ -129,6 +281,6 @@ export class FetchTsType {
 	}
 
 	dispose() {
-		this.plugin.dispose()
+		this.mws.forEach(mw => mw.dispose())
 	}
 }

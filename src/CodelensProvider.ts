@@ -6,7 +6,6 @@ import {
   TextDocument,
 } from 'vscode'
 import { ACTION } from './extension'
-import { Config } from './FetchTsType'
 
 /**
  * CodelensProvider
@@ -66,6 +65,7 @@ export class CodelensProvider implements CodeLensProvider {
         this.codeLenses.push(
           new CodeLens(range, {
             title: '生成类型',
+            tooltip: "发送请求生成类型",
             command: ACTION.genCode,
             arguments: [{ config, endLineNumber }],
           })
