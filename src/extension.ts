@@ -18,8 +18,6 @@ export const ACTION = {
 }
 
 export function activate({ subscriptions, globalState }: ExtensionContext) {
-  const TDCP = new TextDocumentContentProvider()
-
   let FTT: null | FetchTsType = null
 
   /** lazy load */
@@ -31,24 +29,36 @@ export function activate({ subscriptions, globalState }: ExtensionContext) {
     return FTT
   }
 
+  workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration('FetchTsType.mws') && FTT) {
+      FTT.load()
+    }
+  })
+
+  const TDCP = new TextDocumentContentProvider()
+
   subscriptions.push(TDCP)
 
-  subscriptions.push(
-    commands.registerCommand(ACTION.reloadMWS, () => {
-      getFTT().load(true)
-    })
-  )
+  const CP = new CodelensProvider()
+
+  CP.initEvent!.event(getFTT)
 
   subscriptions.push(
     languages.registerCodeLensProvider(
       [{ language: 'typescript' }, { language: 'typescriptreact' }],
-      new CodelensProvider()
+      CP
     )
   )
 
   subscriptions.push(
     commands.registerCommand(ACTION.errTips, (args: any) => {
       window.showErrorMessage(args)
+    })
+  )
+
+  subscriptions.push(
+    commands.registerCommand(ACTION.reloadMWS, () => {
+      getFTT().load(true)
     })
   )
 

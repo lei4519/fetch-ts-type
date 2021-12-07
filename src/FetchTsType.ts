@@ -1,4 +1,4 @@
-import { ExtensionContext, Position, Range, TextEditor, window, workspace } from "vscode";
+import { ExtensionContext, Position, ProgressLocation, Range, TextEditor, window, workspace } from "vscode";
 import { TextDocumentContentProvider } from "./TextDocumentContentProvider";
 import { diff } from '../rust-myers-diff/pkg/rust_myers_diff'
 import axios from 'axios'
@@ -60,6 +60,8 @@ export class FetchTsType {
 	loadingMwsPromise: Promise<any> | null = null
 	/** 中间件集 */
 	mws: MW[] = []
+	/** loading 集 */
+	openLoadings = new Set<Function>()
 
 
 	constructor(showDoc: TextDocumentContentProvider['showDoc'], globalState: ExtensionContext['globalState']) {
@@ -68,9 +70,29 @@ export class FetchTsType {
 		this.load()
 	}
 
+	private openLoading(tips: string) {
+		let resolve: Function
+		const promise = new Promise((r) => {
+			resolve = r
+		})
+		window.withProgress(
+			{
+				location: ProgressLocation.Window,
+				title: tips,
+			},
+			() => promise
+		)
+		this.openLoadings.add(resolve!)
+		return () => {
+			this.openLoadings.delete(resolve!)
+			resolve()
+		}
+	}
+
 	async load(ignoreCache = false) {
 		if (this.loadingMwsPromise) {
-			window.showInformationMessage("中间件正在加载...")
+			// 中间件正在加载
+			return
 		} else {
 			this.loadingMwsPromise =
 				this.lodaMws(ignoreCache).then((mws) => {
@@ -81,6 +103,8 @@ export class FetchTsType {
 	}
 
 	private async lodaMws(ignoreCache: boolean) {
+		const close = this.openLoading('加载中间件...')
+
 		const config = workspace.getConfiguration("FetchTsType")
 
 		const mwsUrl = [...config.get<string[]>('mws', [])]
@@ -131,6 +155,8 @@ export class FetchTsType {
 					if (methods.every(m => isFunction(mw[m]))) {
 						mw.chromeCookiesSecure = chromeCookiesSecure
 						mw.showDoc = this.showDoc
+						mw.openLoading = this.openLoading.bind(this)
+
 						mws.push(mw)
 
 						const downloadTime = Date.now()
@@ -154,7 +180,7 @@ export class FetchTsType {
 		if (ignoreCache) {
 			window.showInformationMessage("中间件重新加载成功")
 		}
-
+		close()
 		return mws
 	}
 
@@ -191,22 +217,27 @@ export class FetchTsType {
 
 		let newCode: string | null = null
 
+		let closeLoading = this.openLoading('生成类型中...')
 		try {
 			newCode = (await this.genNext('generate', ctx)()).newCode
 		} catch (e) {
 			this.showDoc(arg.config.url, `${e}`)
 		}
+		closeLoading()
 
 		if (!newCode) { return }
 
 		const existCodeRecode = this.matchCodeExist(arg)
 
 		if (existCodeRecode) {
+			closeLoading = this.openLoading('diff 类型中...')
 			try {
+				ctx.existCode = existCodeRecode.code
 				await this.genNext('generateDiffCode', ctx)()
 			} catch (e) {
 				this.showDoc(arg.config.url, `${e}`)
 			}
+			closeLoading()
 		}
 
 		if (existCodeRecode && (ctx.diffCode || ctx.newCode)) {
@@ -282,5 +313,8 @@ export class FetchTsType {
 
 	dispose() {
 		this.mws.forEach(mw => mw.dispose())
+		this.mws = []
+		this.openLoadings.forEach(close => close())
+		this.openLoadings.clear()
 	}
 }

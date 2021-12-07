@@ -1,6 +1,7 @@
 import {
   CodeLens,
   CodeLensProvider,
+  EventEmitter,
   Position,
   Range,
   TextDocument,
@@ -12,6 +13,7 @@ import { ACTION } from './extension'
  */
 export class CodelensProvider implements CodeLensProvider {
   private codeLenses: CodeLens[] = []
+  initEvent: EventEmitter<void> | null = new EventEmitter()
 
   // 匹配注释块
   private matchBlock = /\/\*\*\sfetchTsComment\n(.*?)\*\//gms
@@ -72,6 +74,13 @@ export class CodelensProvider implements CodeLensProvider {
         )
       }
     }
+
+    if (this.codeLenses.length && this.initEvent) {
+      this.initEvent.fire()
+      this.initEvent.dispose()
+      this.initEvent = null
+    }
+
     return this.codeLenses
   }
 

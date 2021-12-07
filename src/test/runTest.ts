@@ -1,6 +1,6 @@
 /** fetchTsComment
  * @namespace TaskInfo
- * @url http://mock.api/taskinfo
+ * @url http://www.baidu.com
  */
 export namespace TaskInfo {
 	export interface RootObject {
@@ -62,11 +62,3 @@ export namespace TaskInfo {
 		mag: string
 	}
 }
-
-
-
-
-
-
-
-

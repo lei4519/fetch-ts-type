@@ -26,6 +26,11 @@ interface MW {
 	 */
 	chromeCookiesSecure: ChromeCookiesSecure.Default
 	/**
+	 * 在状态栏中展示 loading，返回 closeLoading 函数
+	 * tips 为 loading 的文字提示
+	 */
+	openLoading: (tips: string) => Function
+	/**
 	 * 主入口：生成类型字符串
 	 * 如果发生错误，直接抛出错误即可，外部会统一捕获错误并展示错误窗口
 	 */
