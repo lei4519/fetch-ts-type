@@ -2,7 +2,7 @@ import { ExtensionContext, Position, ProgressLocation, Range, TextEditor, window
 import { TextDocumentContentProvider } from "./TextDocumentContentProvider";
 import { diff } from '../rust-myers-diff/pkg/rust_myers_diff'
 import axios from 'axios'
-import chrome from 'chrome-cookies-secure'
+import * as chrome from 'chrome-cookies-secure'
 
 interface CacheMw {
 	/** 请求到的代码 */
@@ -21,13 +21,9 @@ const chromeCookiesSecure: ChromeCookiesSecure.Default = {
 		chrome.getCookies(...args)
 	},
 	getCookiesPromised: (...args) => new Promise((resolve, reject) => {
-		let url, format, profile
-		if (args.length === 3) {
-			;[url, format, profile] = args
-		} else {
-			;[url, profile] = args
-		}
+		const [url, format, profile] = args
 
+		// @ts-ignore
 		chrome.getCookies(url, format || 'object', (err, data) => {
 			err ? reject(err) : resolve(data)
 		}, profile)
@@ -103,6 +99,8 @@ export class FetchTsType {
 	}
 
 	private async lodaMws(ignoreCache: boolean) {
+		this.dispose()
+
 		const close = this.openLoading('加载中间件...')
 
 		const config = workspace.getConfiguration("FetchTsType")
@@ -113,17 +111,20 @@ export class FetchTsType {
 		while (mwsUrl.length) {
 			const mwURL = mwsUrl.shift()!
 
-			const cache = this.globalState.get<CacheMw>(mwURL)
+			if (!ignoreCache) {
+				const cache = this.globalState.get<CacheMw>(mwURL)
 
-			if (cache) {
-				if (cache.expireTime >= Date.now()) {
-					const { code } = cache
-					const MW = this.genCtor(code)
-					const mw: MW = new MW()
-					mws.push(mw)
-					continue
-				} else {
-					this.globalState.update(mwURL, undefined)
+				if (cache) {
+					if (cache.expireTime >= Date.now()) {
+						const { code } = cache
+						const MW = this.genCtor(code)
+						const mw: MW = new MW()
+						this.inject(mw)
+						mws.push(mw)
+						continue
+					} else {
+						this.globalState.update(mwURL, undefined)
+					}
 				}
 			}
 
@@ -153,10 +154,7 @@ export class FetchTsType {
 					const methods = ['generate', 'generateDiffCode', 'dispose'] as (keyof MW)[]
 
 					if (methods.every(m => isFunction(mw[m]))) {
-						mw.chromeCookiesSecure = chromeCookiesSecure
-						mw.showDoc = this.showDoc
-						mw.openLoading = this.openLoading.bind(this)
-
+						this.inject(mw)
 						mws.push(mw)
 
 						const downloadTime = Date.now()
@@ -192,6 +190,13 @@ export class FetchTsType {
 		new Function(code)()(m, m.exports, require)
 
 		return m.exports
+	}
+
+	private inject(mw: MW) {
+		mw.chromeCookiesSecure = chromeCookiesSecure
+		mw.showDoc = this.showDoc
+		mw.openLoading = this.openLoading.bind(this)
+		mw.outputChannel = window.createOutputChannel(mw.mwName || 'FTT-untitle-mw')
 	}
 
 	/** 入口 */
@@ -248,12 +253,12 @@ export class FetchTsType {
 	}
 
 	private genNext(method: keyof Pick<MW, 'generate' | 'generateDiffCode'>, ctx: Ctx) {
-		let i = 0, l = this.mws.length
+		let i = this.mws.length - 1
 		const next = () => {
-			if (i === l) {
+			if (i < 0) {
 				return Promise.resolve(ctx)
 			}
-			return this.mws[i++][method](ctx, next)
+			return this.mws[i--][method](ctx, next)
 		}
 		return next
 	}
@@ -312,7 +317,10 @@ export class FetchTsType {
 	}
 
 	dispose() {
-		this.mws.forEach(mw => mw.dispose())
+		this.mws.forEach(mw => {
+			mw.outputChannel.dispose()
+			mw.dispose()
+		})
 		this.mws = []
 		this.openLoadings.forEach(close => close())
 		this.openLoadings.clear()

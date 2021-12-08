@@ -4,7 +4,7 @@
 	"displayName": "Fetch Ts Type",
 	"description": "根据响应的 JSON 数据生成 TS 类型",
 	"icon": "logo.png",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"author": "lei4519",
 	"repository": {
 		"url": "https://github.com/lei4519/fetch-ts-type"
@@ -57,7 +57,7 @@
 			"properties": {
 				"FetchTsType.mws": {
 					"type": "array",
-					"description": "中间件配置",
+					"description": "中间件配置（倒序执行）",
 					"default": [
 						"https://raw.githubusercontent.com/lei4519/FTT-base-mw/master/dist/index.js"
 					],

@@ -14,6 +14,10 @@
  */
 interface MW {
 	/**
+	 * 当前中间件的名字，用于错误提示时展示分辨
+	 */
+	mwName: string
+	/**
 	 * 中间件代码的缓存时间（毫秒），默认 7 天（1000 * 60 * 60 * 24 * 7）。
 	 * 可以调用 `FetchTsType.reloadMWS` 命令手动重新加载代码
 	 */
@@ -30,6 +34,11 @@ interface MW {
 	 * tips 为 loading 的文字提示
 	 */
 	openLoading: (tips: string) => Function
+	/**
+	 * vscode 输出面板
+	 * https://code.visualstudio.com/api/references/vscode-api#OutputChannel
+	 */
+	outputChannel: OutputChannel
 	/**
 	 * 主入口：生成类型字符串
 	 * 如果发生错误，直接抛出错误即可，外部会统一捕获错误并展示错误窗口
@@ -147,7 +156,6 @@ declare namespace ChromeCookiesSecure {
 	function getCookies(url: string, callback: Callback<Result['object']>, profile?: any): void
 
 	function getCookiesPromised<T extends keyof Result>(url: string, format: T, profile?: any): Promise<Result[T]>
-	function getCookiesPromised<T extends keyof Result>(url: string, profile?: any): Promise<Result[T]>
 
 	export interface Default {
 		getCookies: typeof getCookies
@@ -158,4 +166,110 @@ declare namespace ChromeCookiesSecure {
 declare module 'chrome-cookies-secure' {
 	const chrome: ChromeCookiesSecure.Default
 	export default chrome
+}
+
+interface OutputChannel {
+
+	/**
+	 * The human-readable name of this output channel.
+	 */
+	readonly name: string;
+
+	/**
+	 * Append the given value to the channel.
+	 *
+	 * @param value A string, falsy values will not be printed.
+	 */
+	append(value: string): void;
+
+	/**
+	 * Append the given value and a line feed character
+	 * to the channel.
+	 *
+	 * @param value A string, falsy values will be printed.
+	 */
+	appendLine(value: string): void;
+
+	/**
+	 * Removes all output from the channel.
+	 */
+	clear(): void;
+
+	/**
+	 * Reveal this channel in the UI.
+	 *
+	 * @param preserveFocus When `true` the channel will not take focus.
+	 */
+	show(preserveFocus?: boolean): void;
+
+	/**
+	 * Reveal this channel in the UI.
+	 *
+	 * @deprecated Use the overload with just one parameter (`show(preserveFocus?: boolean): void`).
+	 *
+	 * @param column This argument is **deprecated** and will be ignored.
+	 * @param preserveFocus When `true` the channel will not take focus.
+	 */
+	show(column?: ViewColumn, preserveFocus?: boolean): void;
+
+	/**
+	 * Hide this channel from the UI.
+	 */
+	hide(): void;
+
+	/**
+	 * Dispose and free associated resources.
+	 */
+	dispose(): void;
+}
+
+declare enum ViewColumn {
+	/**
+	 * A *symbolic* editor column representing the currently active column. This value
+	 * can be used when opening editors, but the *resolved* {@link TextEditor.viewColumn viewColumn}-value
+	 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Active`.
+	 */
+	Active = -1,
+	/**
+	 * A *symbolic* editor column representing the column to the side of the active one. This value
+	 * can be used when opening editors, but the *resolved* {@link TextEditor.viewColumn viewColumn}-value
+	 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Beside`.
+	 */
+	Beside = -2,
+	/**
+	 * The first editor column.
+	 */
+	One = 1,
+	/**
+	 * The second editor column.
+	 */
+	Two = 2,
+	/**
+	 * The third editor column.
+	 */
+	Three = 3,
+	/**
+	 * The fourth editor column.
+	 */
+	Four = 4,
+	/**
+	 * The fifth editor column.
+	 */
+	Five = 5,
+	/**
+	 * The sixth editor column.
+	 */
+	Six = 6,
+	/**
+	 * The seventh editor column.
+	 */
+	Seven = 7,
+	/**
+	 * The eighth editor column.
+	 */
+	Eight = 8,
+	/**
+	 * The ninth editor column.
+	 */
+	Nine = 9
 }
