@@ -1,8 +1,9 @@
 import { ExtensionContext, Position, ProgressLocation, Range, TextEditor, window, workspace } from "vscode";
-import { TextDocumentContentProvider } from "./TextDocumentContentProvider";
-import { diff } from '../rust-myers-diff/pkg/rust_myers_diff'
 import axios from 'axios'
-import * as chrome from 'chrome-cookies-secure'
+import { TextDocumentContentProvider } from "./TextDocumentContentProvider";
+import { diff } from '../lib/rust-myers-diff/pkg/rust_myers_diff'
+// @ts-ignore
+import * as chrome from '../lib/chrome-cookies-secure'
 
 interface CacheMw {
 	/** 请求到的代码 */

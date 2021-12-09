@@ -1,3 +1,6 @@
-[submodule "rust-myers-diff"]
-	path = rust-myers-diff
+[submodule "lib/rust-myers-diff"]
+	path = lib/rust-myers-diff
 	url = git@github.com:lei4519/rust-myers-diff.git
+[submodule "lib/chrome-cookies-secure"]
+	path = lib/chrome-cookies-secure
+	url = git@github.com:lei4519/chrome-cookies-secure.git

@@ -4,7 +4,7 @@
 	"displayName": "Fetch Ts Type",
 	"description": "根据响应的 JSON 数据生成 TS 类型",
 	"icon": "logo.png",
-	"version": "0.0.5",
+	"version": "0.0.7",
 	"author": "lei4519",
 	"repository": {
 		"url": "https://github.com/lei4519/fetch-ts-type"
@@ -69,8 +69,6 @@
 		}
 	},
 	"scripts": {
-		"postinstall": "npm run rebuild",
-		"rebuild": "electron-rebuild -v 13.5.0 -f -w sqlite3",
 		"vscode:prepublish": "yarn run compile",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
@@ -87,14 +85,12 @@
 		"@typescript-eslint/eslint-plugin": "^5.1.0",
 		"@typescript-eslint/parser": "^5.1.0",
 		"@vscode/test-electron": "^1.6.2",
-		"electron-rebuild": "^3.2.5",
 		"eslint": "^8.1.0",
 		"glob": "^7.1.7",
 		"mocha": "^9.1.3",
 		"typescript": "^4.4.4"
 	},
 	"dependencies": {
-		"axios": "^0.24.0",
-		"chrome-cookies-secure": "^1.3.2"
+		"axios": "^0.24.0"
 	}
 }

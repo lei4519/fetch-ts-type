@@ -163,11 +163,6 @@ declare namespace ChromeCookiesSecure {
 	}
 }
 
-declare module 'chrome-cookies-secure' {
-	const chrome: ChromeCookiesSecure.Default
-	export default chrome
-}
-
 interface OutputChannel {
 
 	/**
