@@ -1,8 +1,6 @@
 # fetch-ts-type README
 
-> 暂不支持 windows
-
-配置请求接口，根据响应结果生成 TS 类型，本地远程不一致时会生成 diff，支持自定义中间件。
+在编辑器中请求接口生成 TS 类型，本地和远程不一致时会生成 diff，支持自定义中间件。
 
 ## Features
 ![](fetch.gif)

@@ -7,6 +7,8 @@ import {
   window,
   workspace,
 } from "vscode";
+import { exists } from 'fs'
+import { homedir } from 'os'
 import axios from "axios";
 import { TextDocumentContentProvider } from "./TextDocumentContentProvider";
 // @ts-ignore
@@ -25,25 +27,74 @@ interface CacheMw {
 
 const isFunction = (v: any) => typeof v === "function";
 
+const checkChromeProfile = async () => {
+  // profile ? profile : profile = 'Default'
+  const config = workspace.getConfiguration("FetchTsType")
+  const profile = config.get("profileName", "Default")
+  let path: string | undefined
+  if (process.platform === 'darwin') {
+
+    path = process.env.HOME + `/Library/Application Support/Google/Chrome/${profile}/Cookies`;
+
+  } else if (process.platform === 'linux') {
+
+    path = process.env.HOME + `/.config/google-chrome/${profile}/Cookies`;
+
+  } else if (process.platform === 'win32') {
+
+    path = homedir() + `\\AppData\\Local\\Google\\Chrome\\User Data\\${profile}\\Cookies`;
+
+  }
+  if (!path) {
+    return Promise.reject(new Error('Only Mac, Windows, and Linux are supported.'));
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    exists(path!, (exists) => {
+      if (exists) {
+        resolve(profile)
+      } else {
+        reject(new Error(`Chrome 配置文件名称: "${profile}" 不正确, 无法读取 cookie
+请检查并正确设置配置文件名称:
+1. 打开 chrome
+2. 输入网址 \`chrome://version\`
+3. 找到配置文件路径（profile path）, 这个路径的最后一级就是配置文件名称
+4. 打开 vscode，进入设置
+5. 搜索 \`FetchTsType.profileName\` ，输入正确的名称即可`))
+      }
+    })
+  })
+}
+
 const chromeCookiesSecure: ChromeCookiesSecure.Default = {
   getCookies(...args: any) {
-    // @ts-ignore
-    chrome.getCookies(...args);
+    checkChromeProfile().then(() => {
+      // @ts-ignore
+      chrome.getCookies(...args);
+    }).catch((e) => {
+      if (typeof args[1] === 'function') {
+        args[1](e, null)
+      } else if (typeof args[2] === 'function') {
+        args[2](e, null)
+      }
+    })
   },
   getCookiesPromised: (...args) =>
-    new Promise((resolve, reject) => {
-      const [url, format, profile] = args;
+    checkChromeProfile().then((_profile) =>
+      new Promise((resolve, reject) => {
+        const [url, format, profile] = args;
 
-      chrome.getCookies(
-        url,
-        format || "object",
-        // @ts-ignore
-        (err, data) => {
-          err ? reject(err) : resolve(data);
-        },
-        profile
-      );
-    }),
+        chrome.getCookies(
+          url,
+          format || "object",
+          // @ts-ignore
+          (err, data) => {
+            err ? reject(err) : resolve(data);
+          },
+          profile ||  _profile
+        );
+      })
+    )
 };
 
 interface Arg {

@@ -1,104 +1,109 @@
 {
-	"name": "fetch-ts-type",
-	"publisher": "lei4519",
-	"displayName": "Fetch Ts Type",
-	"description": "根据响应的 JSON 数据生成 TS 类型",
-	"icon": "logo.png",
-	"version": "0.0.8",
-	"author": "lei4519",
-	"repository": {
-		"url": "https://github.com/lei4519/fetch-ts-type"
-	},
-	"bugs": {
-		"url": "https://github.com/lei4519/fetch-ts-type/issues"
-	},
-	"homepage": "https://github.com/lei4519/fetch-ts-type",
-	"license": "MIT",
-	"engines": {
-		"vscode": "^1.62.0"
-	},
-	"keywords": [
-		"fetch",
-		"ts",
-		"json",
-		"fetch ts type",
-		"fetchTsComment"
-	],
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [
-		"onLanguage:typescript",
-		"onLanguage:typescriptreact",
-		"onCommand:FetchTsType.reloadMWS"
-	],
-	"main": "./out/extension.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "FetchTsType.reloadMWS",
-				"category": "FetchTsType",
-				"title": "ReloadMWS: 重新加载中间件",
-				"shortTitle": "忽略缓存重新加载中间件",
-				"when": "editorLangId == typescript || editorLangId == typescriptreact"
-			}
-		],
-		"snippets": [
-			{
-				"language": "typescript",
-				"path": "./snippets/snippets.json"
-			},
-			{
-				"language": "typescriptreact",
-				"path": "./snippets/snippets.json"
-			}
-		],
-		"configuration": {
-			"properties": {
-				"FetchTsType.mws": {
-					"type": "array",
-					"description": "中间件配置（倒序执行）",
-					"default": [
-						"https://raw.githubusercontent.com/lei4519/FTT-base-mw/master/dist/index.js"
-					],
-					"items": {
-						"type": "string"
-					}
-				}
-			}
-		}
-	},
-	"scripts": {
-		"vscode:prepublish": "yarn run compile",
-		"compile": "tsc -p ./ && rm -rf out/lib && cp -r -f src/lib out/lib",
-		"watch": "tsc -watch -p ./",
-		"pretest": "yarn run compile && yarn run lint",
-		"lint": "eslint src --ext ts",
-		"package": "yarn run compile && npx vsce package",
-		"publish": "npx vsce publish"
-	},
-	"devDependencies": {
-		"@types/axios": "^0.14.0",
-		"@types/glob": "^7.1.4",
-		"@types/mocha": "^9.0.0",
-		"@types/node": "14.x",
-		"@types/vscode": "^1.62.0",
-		"@typescript-eslint/eslint-plugin": "^5.1.0",
-		"@typescript-eslint/parser": "^5.1.0",
-		"@vscode/test-electron": "^1.6.2",
-		"eslint": "^8.1.0",
-		"glob": "^7.1.7",
-		"mocha": "^9.1.3",
-		"typescript": "^4.4.4",
-		"vsce": "^2.7.0"
-	},
-	"dependencies": {
-		"@vscode/sqlite3": "^5.0.8",
-		"axios": "^0.24.0",
-		"int": "^0.2.0",
-		"keytar": "^7.9.0",
-		"request": "^2.88.0",
-		"tldjs": "^2.3.1",
-		"tough-cookie": "^4.0.0"
-	}
+  "name": "fetch-ts-type",
+  "publisher": "lei4519",
+  "displayName": "Fetch Ts Type",
+  "description": "根据响应的 JSON 数据生成 TS 类型",
+  "icon": "logo.png",
+  "version": "0.0.9",
+  "author": "lei4519",
+  "repository": {
+    "url": "https://github.com/lei4519/fetch-ts-type"
+  },
+  "bugs": {
+    "url": "https://github.com/lei4519/fetch-ts-type/issues"
+  },
+  "homepage": "https://github.com/lei4519/fetch-ts-type",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.62.0"
+  },
+  "keywords": [
+    "fetch",
+    "ts",
+    "json",
+    "fetch ts type",
+    "fetchTsComment"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onCommand:FetchTsType.reloadMWS"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "FetchTsType.reloadMWS",
+        "category": "FetchTsType",
+        "title": "ReloadMWS: 重新加载中间件",
+        "shortTitle": "忽略缓存重新加载中间件",
+        "when": "editorLangId == typescript || editorLangId == typescriptreact"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "typescript",
+        "path": "./snippets/snippets.json"
+      },
+      {
+        "language": "typescriptreact",
+        "path": "./snippets/snippets.json"
+      }
+    ],
+    "configuration": {
+      "properties": {
+        "FetchTsType.mws": {
+          "type": "array",
+          "description": "中间件配置（倒序执行）",
+          "default": [
+            "https://raw.githubusercontent.com/lei4519/FTT-base-mw/master/dist/index.js"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "FetchTsType.profileName": {
+          "type": "string",
+          "description": "Chrome 的用户文件名称，设置正确后才可以读取到 Cookie",
+          "default": "Default"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./ && rm -rf out/lib && cp -r -f src/lib out/lib",
+    "watch": "tsc -watch -p ./",
+    "pretest": "yarn run compile && yarn run lint",
+    "lint": "eslint src --ext ts",
+    "package": "yarn run compile && npx vsce package",
+    "publish": "npx vsce publish"
+  },
+  "devDependencies": {
+    "@types/axios": "^0.14.0",
+    "@types/glob": "^7.1.4",
+    "@types/mocha": "^9.0.0",
+    "@types/node": "14.x",
+    "@types/vscode": "^1.62.0",
+    "@typescript-eslint/eslint-plugin": "^5.1.0",
+    "@typescript-eslint/parser": "^5.1.0",
+    "@vscode/test-electron": "^1.6.2",
+    "eslint": "^8.1.0",
+    "glob": "^7.1.7",
+    "mocha": "^9.1.3",
+    "typescript": "^4.4.4",
+    "vsce": "^2.7.0"
+  },
+  "dependencies": {
+    "@vscode/sqlite3": "^5.0.8",
+    "axios": "^0.24.0",
+    "int": "^0.2.0",
+    "keytar": "^7.9.0",
+    "request": "^2.88.0",
+    "tldjs": "^2.3.1",
+    "tough-cookie": "^4.0.0"
+  }
 }
